@@ -317,13 +317,13 @@ namespace PdfSharpCore.Pdf.Security
         {
             byte[] ownerKey = new byte[32];
             //#if !SILVERLIGHT
-            byte[] digest = _md5.ComputeHash(ownerPad);
+            byte[] digest = _sha256.ComputeHash(ownerPad);
             if (strongEncryption)
             {
                 byte[] mkey = new byte[16];
                 // Hash the pad 50 times
                 for (int idx = 0; idx < 50; idx++)
-                    digest = _md5.ComputeHash(digest);
+                    digest = _sha256.ComputeHash(digest);
                 Array.Copy(userPad, 0, ownerKey, 0, 32);
                 // Encrypt the key
                 for (int i = 0; i < 20; i++)
@@ -351,9 +351,9 @@ namespace PdfSharpCore.Pdf.Security
             _ownerKey = ownerKey;
             _encryptionKey = new byte[strongEncryption ? 16 : 5];
 
-            _md5.Initialize();
-            _md5.TransformBlock(userPad, 0, userPad.Length, userPad, 0);
-            _md5.TransformBlock(ownerKey, 0, ownerKey.Length, ownerKey, 0);
+            _sha256.Initialize();
+            _sha256.TransformBlock(userPad, 0, userPad.Length, userPad, 0);
+            _sha256.TransformBlock(ownerKey, 0, ownerKey.Length, ownerKey, 0);
 
             // Split permission into 4 bytes
             byte[] permission = new byte[4];
@@ -362,18 +362,18 @@ namespace PdfSharpCore.Pdf.Security
             permission[2] = (byte)(permissions >> 16);
             permission[3] = (byte)(permissions >> 24);
 
-            _md5.TransformBlock(permission, 0, 4, permission, 0);
-            _md5.TransformBlock(documentID, 0, documentID.Length, documentID, 0);
-            _md5.TransformFinalBlock(permission, 0, 0);
-            byte[] digest = _md5.Hash;
-            _md5.Initialize();
+            _sha256.TransformBlock(permission, 0, 4, permission, 0);
+            _sha256.TransformBlock(documentID, 0, documentID.Length, documentID, 0);
+            _sha256.TransformFinalBlock(permission, 0, 0);
+            byte[] digest = _sha256.Hash;
+            _sha256.Initialize();
             // Create the hash 50 times (only for 128 bit)
             if (_encryptionKey.Length == 16)
             {
                 for (int idx = 0; idx < 50; idx++)
                 {
-                    digest = _md5.ComputeHash(digest);
-                    _md5.Initialize();
+                    digest = _sha256.ComputeHash(digest);
+                    _sha256.Initialize();
                 }
             }
             Array.Copy(digest, 0, _encryptionKey, 0, _encryptionKey.Length);
@@ -386,10 +386,10 @@ namespace PdfSharpCore.Pdf.Security
         {
             if (_encryptionKey.Length == 16)
             {
-                _md5.TransformBlock(PasswordPadding, 0, PasswordPadding.Length, PasswordPadding, 0);
-                _md5.TransformFinalBlock(documentID, 0, documentID.Length);
-                byte[] digest = _md5.Hash;
-                _md5.Initialize();
+                _sha256.TransformBlock(PasswordPadding, 0, PasswordPadding.Length, PasswordPadding, 0);
+                _sha256.TransformFinalBlock(documentID, 0, documentID.Length);
+                byte[] digest = _sha256.Hash;
+                _sha256.Initialize();
                 Array.Copy(digest, 0, _userKey, 0, 16);
                 for (int idx = 16; idx < 32; idx++)
                     _userKey[idx] = 0;
@@ -512,17 +512,17 @@ namespace PdfSharpCore.Pdf.Security
         internal void SetHashKey(PdfObjectID id)
         {
             byte[] objectId = new byte[5];
-            _md5.Initialize();
+            _sha256.Initialize();
             // Split the object number and generation
             objectId[0] = (byte)id.ObjectNumber;
             objectId[1] = (byte)(id.ObjectNumber >> 8);
             objectId[2] = (byte)(id.ObjectNumber >> 16);
             objectId[3] = (byte)id.GenerationNumber;
             objectId[4] = (byte)(id.GenerationNumber >> 8);
-            _md5.TransformBlock(_encryptionKey, 0, _encryptionKey.Length, _encryptionKey, 0);
-            _md5.TransformFinalBlock(objectId, 0, objectId.Length);
-            _key = _md5.Hash;
-            _md5.Initialize();
+            _sha256.TransformBlock(_encryptionKey, 0, _encryptionKey.Length, _encryptionKey, 0);
+            _sha256.TransformFinalBlock(objectId, 0, objectId.Length);
+            _key = _sha256.Hash;
+            _sha256.Initialize();
             _keySize = _encryptionKey.Length + 5;
             if (_keySize > 16)
                 _keySize = 16;
@@ -571,7 +571,7 @@ namespace PdfSharpCore.Pdf.Security
             byte[] userPad = PadPassword(_userPassword);
             byte[] ownerPad = PadPassword(_ownerPassword);
 
-            _md5.Initialize();
+            _sha256.Initialize();
             _ownerKey = ComputeOwnerKey(userPad, ownerPad, strongEncryption);
             byte[] documentID = PdfEncoders.RawEncoding.GetBytes(_document.Internals.FirstDocumentID);
             InitWithUserPassword(documentID, _userPassword, _ownerKey, permissions, strongEncryption);
@@ -594,7 +594,7 @@ namespace PdfSharpCore.Pdf.Security
         /// </summary>
         byte[] _encryptionKey;
 
-        readonly MD5 _md5 = MD5.Create();
+        readonly SHA256 _sha256 = SHA256.Create();
         /// <summary>
         /// Bytes used for RC4 encryption.
         /// </summary>
@@ -644,13 +644,13 @@ namespace PdfSharpCore.Pdf.Security
             /// <summary>
             /// (Required) A number specifying which revision of the standard security handler
             /// should be used to interpret this dictionary:
-            /// • 2 if the document is encrypted with a V value less than 2 and does not have any of
+            /// ï¿½ 2 if the document is encrypted with a V value less than 2 and does not have any of
             ///   the access permissions set (by means of the P entry, below) that are designated 
             ///   "Revision 3 or greater".
-            /// • 3 if the document is encrypted with a V value of 2 or 3, or has any "Revision 3 or 
+            /// ï¿½ 3 if the document is encrypted with a V value of 2 or 3, or has any "Revision 3 or 
             ///   greater" access permissions set.
-            /// • 4 if the document is encrypted with a V value of 4
-            /// • 5 (ExtensionLevel 3) if the document is encrypted with a V value of 5
+            /// ï¿½ 4 if the document is encrypted with a V value of 4
+            /// ï¿½ 5 (ExtensionLevel 3) if the document is encrypted with a V value of 5
             /// </summary>
             [KeyInfo(KeyType.Integer | KeyType.Required)]
             public const string R = "/R";
@@ -659,9 +659,9 @@ namespace PdfSharpCore.Pdf.Security
             ///  (Required) A string used in computing the encryption key. 
             ///  The value of the string depends on the value of the
             ///  revision number, the R entry described above.
-            ///  • The value of R is 4 or less: A 32-byte string, based on both the owner and user passwords, that is used in 
+            ///  ï¿½ The value of R is 4 or less: A 32-byte string, based on both the owner and user passwords, that is used in 
             ///    computing the encryption key and in determining whether a valid owner password was entered.
-            ///  • The value for R is 5: (ExtensionLevel 3) A 48-byte string,  based on the owner and user passwords, that is used in 
+            ///  ï¿½ The value for R is 5: (ExtensionLevel 3) A 48-byte string,  based on the owner and user passwords, that is used in 
             ///    computing the encryption key and in determining whether a valid owner password was entered.
             /// </summary>
             [KeyInfo(KeyType.String | KeyType.Required)]
@@ -670,9 +670,9 @@ namespace PdfSharpCore.Pdf.Security
             /// <summary>
             /// (Required) A string based on the user password. The value 
             /// of the string depends on the value of the revision number, the R entry described above.
-            /// • The value of R is 4 or less: A 32-byte string, based on the user password, that is used in determining
+            /// ï¿½ The value of R is 4 or less: A 32-byte string, based on the user password, that is used in determining
             ///   whether to prompt the user for a password and, if so, whether a valid user or owner password was entered.
-            /// • The value for R is 5: (ExtensionLevel 3) A 48-byte string, based on the user password, that is used in 
+            /// ï¿½ The value for R is 5: (ExtensionLevel 3) A 48-byte string, based on the user password, that is used in 
             ///   determining whether to prompt the user for a password and, if so, whether a valid user password was entered.
             /// </summary>
             [KeyInfo(KeyType.String | KeyType.Required)]
